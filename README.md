@@ -2,6 +2,10 @@
 
 # SubtitleStudio
 
+### Architecture Diagram
+
+✨ [**READ HERE**](./ARCHITECHURE.md)
+
 ### Local AI subtitle burner for reels, shorts, and clips — no cloud, no subscription, no API keys.
 
 <p>
