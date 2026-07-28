@@ -1,0 +1,118 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PipelineStatus {
+  UPLOADED
+  EXTRACTING_AUDIO
+  TRANSCRIBING
+  TRANSCRIBED
+  FAILED
+}
+
+enum ExportMode {
+  OVERLAY
+  CAPTIONS_ONLY
+}
+
+enum ExportFormat {
+  MP4_H265
+  MOV
+}
+
+enum ExportStatus {
+  QUEUED
+  RENDERING
+  DONE
+  FAILED
+}
+
+model VideoProject {
+  id               String         @id @default(cuid())
+  originalFilename String
+  storagePath      String
+  durationMs       Int
+  width            Int
+  height           Int
+  fps              Float
+  status           PipelineStatus @default(UPLOADED)
+  errorMessage     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  words      TranscriptWord[]
+  cues       SubtitleCue[]
+  style      SubtitleStyle?
+  exportJobs ExportJob[]
+}
+
+model TranscriptWord {
+  id             String       @id @default(cuid())
+  videoProjectId String
+  video          VideoProject @relation(fields: [videoProjectId], references: [id], onDelete: Cascade)
+  word           String
+  startMs        Int
+  endMs          Int
+  order          Int
+
+  @@index([videoProjectId, order])
+}
+
+model SubtitleCue {
+  id             String       @id @default(cuid())
+  videoProjectId String
+  video          VideoProject @relation(fields: [videoProjectId], references: [id], onDelete: Cascade)
+  text           String
+  startMs        Int
+  endMs          Int
+  order          Int
+  colorHex       String?
+  edited         Boolean      @default(false)
+
+  @@index([videoProjectId, order])
+}
+
+model SubtitleStyle {
+  id                 String       @id @default(cuid())
+  videoProjectId     String       @unique
+  video              VideoProject @relation(fields: [videoProjectId], references: [id], onDelete: Cascade)
+  fontFileName       String
+  fontSizePx         Int          @default(42)
+  fontColorHex       String       @default("#FFFFFF")
+  outlineColorHex    String       @default("#000000")
+  outlineWidthPx     Int          @default(2)
+  backgroundBoxOn    Boolean      @default(false)
+  backgroundColorHex String       @default("#000000")
+  backgroundOpacity  Float        @default(0.5)
+  position           String       @default("bottom")
+  verticalOffsetPct  Int          @default(10)
+  positionX          Float        @default(50.0)
+  positionY          Float        @default(80.0)
+  rotationDeg        Float        @default(0.0)
+  animation          String       @default("pop")
+  wordsPerCue        Int          @default(6)
+  uppercase          Boolean      @default(false)
+  bold               Boolean      @default(false)
+  italic             Boolean      @default(false)
+  strokePosition     String       @default("outside")
+}
+
+model ExportJob {
+  id             String       @id @default(cuid())
+  videoProjectId String
+  video          VideoProject @relation(fields: [videoProjectId], references: [id], onDelete: Cascade)
+  mode           ExportMode
+  backgroundHex  String?
+  includeAudio   Boolean      @default(true)
+  format         ExportFormat
+  status         ExportStatus @default(QUEUED)
+  progressPct    Int          @default(0)
+  outputPath     String?
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+}

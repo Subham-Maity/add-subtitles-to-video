@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  transcription:
+    build: ./transcription-service
+    container_name: add-subtitles-transcription
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./storage:/storage
+      - whisper-models:/root/.cache/huggingface
+    environment:
+      - WHISPER_MODEL=base
+      - COMPUTE_TYPE=int8_float16
+      - DEVICE=cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  server:
+    build: ./server
+    container_name: add-subtitles-server
+    ports:
+      - "3336:3336"
+    volumes:
+      - ./storage:/storage
+    environment:
+      - PORT=3336
+      - TRANSCRIPTION_SERVICE_URL=http://transcription:8001
+      - STORAGE_DIR=/storage
+      - DATABASE_URL=postgresql://postgres:postgres@localhost:5444/postgres?schema=public
+    depends_on:
+      - transcription
+
+  client:
+    build: ./client
+    container_name: add-subtitles-client
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3336
+    depends_on:
+      - server
+
+volumes:
+  whisper-models:

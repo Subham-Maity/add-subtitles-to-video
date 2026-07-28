@@ -1,0 +1,287 @@
+openapi: 3.0.0
+paths:
+  /xam:
+    get:
+      operationId: AppController_getHello
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - App
+  /xam/videos/storage/clean-junk:
+    post:
+      operationId: VideosController_cleanStorageJunk
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      tags: &ref_0
+        - Videos
+  /xam/videos/upload:
+    post:
+      operationId: VideosController_uploadVideo
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      tags: *ref_0
+  /xam/videos:
+    get:
+      operationId: VideosController_listProjects
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags: *ref_0
+  /xam/videos/{id}:
+    get:
+      operationId: VideosController_getProject
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_0
+    delete:
+      operationId: VideosController_deleteProject
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_0
+  /xam/videos/{id}/stream:
+    get:
+      operationId: VideosController_streamVideo
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_0
+  /xam/videos/{id}/retry:
+    post:
+      operationId: VideosController_retryPipeline
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags: *ref_0
+  /xam/videos/{id}/progress:
+    get:
+      operationId: VideosController_sseProgress
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_0
+  /xam/videos/{id}/cues:
+    post:
+      operationId: SubtitlesController_createCue
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCueDto'
+      responses:
+        '201':
+          description: ''
+      tags: &ref_1
+        - Subtitles
+  /xam/videos/{id}/cues/{cueId}:
+    patch:
+      operationId: SubtitlesController_updateCue
+      parameters:
+        - name: cueId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCueDto'
+      responses:
+        '200':
+          description: ''
+      tags: *ref_1
+    delete:
+      operationId: SubtitlesController_deleteCue
+      parameters:
+        - name: cueId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_1
+  /xam/videos/{id}/cues/regenerate:
+    post:
+      operationId: SubtitlesController_regenerateCues
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateCuesDto'
+      responses:
+        '201':
+          description: ''
+      tags: *ref_1
+  /xam/videos/{id}/style:
+    patch:
+      operationId: SubtitlesController_updateStyle
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStyleDto'
+      responses:
+        '200':
+          description: ''
+      tags: *ref_1
+  /xam/fonts:
+    get:
+      operationId: FontsController_getFonts
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Fonts
+  /xam/videos/{id}/export:
+    post:
+      operationId: ExportController_createExport
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExportDto'
+      responses:
+        '201':
+          description: ''
+      tags: &ref_2
+        - Export
+  /xam/exports/{jobId}/progress:
+    get:
+      operationId: ExportController_sseProgress
+      parameters:
+        - name: jobId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_2
+  /xam/exports/{jobId}/download:
+    get:
+      operationId: ExportController_downloadExport
+      parameters:
+        - name: jobId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags: *ref_2
+info:
+  title: XAM-PROD BACKEND
+  description: XAM-PROD Application Backend API
+  version: 1.0.0
+  contact:
+    name: SUBHAM MAITY
+    url: https://github.com/Subham-Maity
+    email: maitysubham4041@gmail.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+tags:
+  - name: subham-xam
+    description: Developer of this app
+servers:
+  - url: http://localhost:3336
+    description: Local server (development)
+  - url: http://210.89.44.183:3336/xam
+    description: Staging server (testing)
+  - url: http://210.89.44.183:3336/xam
+    description: Production server (live)
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    CreateCueDto:
+      type: object
+      properties: {}
+    UpdateCueDto:
+      type: object
+      properties: {}
+    RegenerateCuesDto:
+      type: object
+      properties: {}
+    UpdateStyleDto:
+      type: object
+      properties: {}
+    CreateExportDto:
+      type: object
+      properties: {}
