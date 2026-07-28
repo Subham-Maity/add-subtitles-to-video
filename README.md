@@ -26,7 +26,11 @@
 
 ## 🎥 Demo
 
-https://github.com/user-attachments/assets/xam.mp4
+
+
+https://github.com/user-attachments/assets/3c374096-7a19-4e45-971a-9a865eb7fa17
+
+
 
 > Upload a video → AI auto-transcribes with word-level timestamps → Style your subtitles in the Canva-style editor → Export as H.264 MP4 or H.265 MOV. Everything runs locally.
 
