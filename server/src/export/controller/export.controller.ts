@@ -16,12 +16,14 @@ import { ExportJobRepository } from '../repository';
 import { ExportOrchestrator } from '../service';
 import { CreateExportDto } from '../dto';
 import { Observable, map } from 'rxjs';
+import { VideoProjectRepository } from 'src/videos/repository';
 
 @Controller()
 export class ExportController {
   constructor(
     private readonly exportRepo: ExportJobRepository,
     private readonly orchestrator: ExportOrchestrator,
+    private readonly videoRepo: VideoProjectRepository,
   ) {}
 
   @Post('videos/:id/export')
@@ -29,6 +31,12 @@ export class ExportController {
     @Param('id') videoProjectId: string,
     @Body() dto: CreateExportDto,
   ) {
+    // Guard: verify the video project exists before touching the DB export table
+    const video = await this.videoRepo.findById(videoProjectId);
+    if (!video) {
+      throw new NotFoundException(`Video project '${videoProjectId}' not found. It may have been deleted.`);
+    }
+
     const job = await this.exportRepo.create({
       videoProjectId,
       mode: dto.mode,

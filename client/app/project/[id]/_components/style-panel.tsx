@@ -14,7 +14,7 @@ interface StylePanelProps {
 
 export function StylePanel({ videoId, style, onStyleUpdated }: StylePanelProps) {
   const [formData, setFormData] = useState<Partial<SubtitleStyle>>({
-    fontFileName: 'Inter-Bold.ttf',
+    fontFileName: '',
     fontSizePx: 42,
     fontColorHex: '#FFFFFF',
     outlineColorHex: '#000000',
@@ -61,7 +61,7 @@ export function StylePanel({ videoId, style, onStyleUpdated }: StylePanelProps) 
 
       {/* Font Family */}
       <FontSelect
-        value={formData.fontFileName || 'Inter-Bold.ttf'}
+        value={formData.fontFileName || ''}
         onChange={(fontFileName) => updateField({ fontFileName })}
       />
 

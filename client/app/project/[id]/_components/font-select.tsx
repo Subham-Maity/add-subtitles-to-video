@@ -45,7 +45,8 @@ export function FontSelect({ value, onChange }: FontSelectProps) {
         disabled={loading}
         className="w-full bg-zinc-900/80 border border-zinc-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
       >
-        <option value="Inter-Bold.ttf">Inter Bold (Default System)</option>
+        {/* Empty value = use system/CSS default font (Arial) */}
+        <option value="">System Font (Arial)</option>
         {fonts.map((f) => (
           <option key={f.fileName} value={f.fileName}>
             {f.displayName} ({f.fileName})

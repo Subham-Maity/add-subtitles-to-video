@@ -166,7 +166,7 @@ export default function StudioProjectPage() {
           )}
           {project.status === 'FAILED' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-200">
-              <AlertCircle className="w-3.5 h-3.5" /> {project.errorMessage || 'Failed'}
+              <AlertCircle className="w-3.5 h-3.5" /> {typeof project.errorMessage === 'string' ? project.errorMessage : (project.errorMessage ? String(project.errorMessage) : 'Failed')}
             </span>
           )}
           {project.status !== 'TRANSCRIBED' && project.status !== 'FAILED' && (
@@ -219,7 +219,7 @@ export default function StudioProjectPage() {
             >
               ✕
             </button>
-            <ExportPanel videoId={project.id} />
+            <ExportPanel videoId={project.id} project={project} />
           </div>
         </div>
       )}

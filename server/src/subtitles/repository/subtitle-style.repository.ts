@@ -17,7 +17,7 @@ export class SubtitleStyleRepository {
       where: { videoProjectId },
       create: {
         videoProjectId,
-        fontFileName: data.fontFileName || 'Inter-Bold.ttf',
+        fontFileName: data.fontFileName || '',
         fontSizePx: data.fontSizePx ?? 42,
         fontColorHex: data.fontColorHex || '#FFFFFF',
         outlineColorHex: data.outlineColorHex || '#000000',
