@@ -15,4 +15,11 @@ export const validateConfig = Joi.object({
     .uri()
     .required()
     .error(new Error('DATABASE_URL is missing or invalid')),
+
+  // Redis Configuration
+  REDIS_HOST: Joi.string().default('localhost'),
+  REDIS_PORT: Joi.number().default(6379),
+  REDIS_USERNAME: Joi.string().allow('').optional(),
+  REDIS_PASSWORD: Joi.string().allow('').optional(),
+  REDIS_DATABASE: Joi.number().default(0),
 });

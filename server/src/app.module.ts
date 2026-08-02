@@ -15,6 +15,7 @@ import { VideosModule } from './videos';
 import { SubtitlesModule } from './subtitles';
 import { FontsModule } from './fonts';
 import { ExportModule } from './export';
+import { QueueModule } from './queue';
 
 LoggerMiddleware.configure({
   logRequest: true,
@@ -54,6 +55,9 @@ LoggerMiddleware.configure({
     MulterModule.register({
       dest: '../storage/temp',
     }),
+
+    // Queue & Redis Background Jobs
+    QueueModule,
 
     // Database
     PrismaModule,

@@ -22,6 +22,7 @@ import { Response } from 'express';
 import { VideoProjectRepository } from 'src/videos/repository';
 import { VideoPipelineOrchestrator } from 'src/videos/service';
 import { FfprobeHelper } from 'src/videos/service/core/utility';
+import { SubtitleTranscriptionQueueService } from 'src/queue';
 
 @Controller('videos')
 export class VideosController {
@@ -30,6 +31,7 @@ export class VideosController {
   constructor(
     private readonly videoRepo: VideoProjectRepository,
     private readonly orchestrator: VideoPipelineOrchestrator,
+    private readonly queueService: SubtitleTranscriptionQueueService,
     private readonly ffprobe: FfprobeHelper,
     config: ConfigService,
   ) {
@@ -223,8 +225,8 @@ export class VideosController {
       fps: metadata.fps,
     });
 
-    // Start background processing pipeline
-    this.orchestrator.runPipeline(project.id).catch(() => {});
+    // Enqueue background transcription job in Redis BullMQ queue
+    await this.queueService.addTranscriptionJob({ videoProjectId: project.id });
 
     return project;
   }
@@ -275,10 +277,10 @@ export class VideosController {
     const project = await this.videoRepo.findById(id);
     if (!project) throw new NotFoundException('Video project not found');
 
-    // Trigger background pipeline execution
-    this.orchestrator.runPipeline(id).catch(() => {});
+    // Enqueue background transcription job in Redis BullMQ queue
+    await this.queueService.addTranscriptionJob({ videoProjectId: id });
 
-    return { message: 'Pipeline retry initiated', id };
+    return { message: 'Pipeline retry initiated in Redis queue', id };
   }
 
   @Sse(':id/progress')

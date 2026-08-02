@@ -43,7 +43,14 @@ export class TranscriptionClientProvider {
       }));
     } catch (error: any) {
       this.logger.error(`Transcription request failed: ${error.message}`, error.stack);
-      throw new Error(`Transcription service error: ${error.response?.data?.detail || error.message}`);
+      if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
+        throw new Error(
+          `Transcription service is not running on ${this.baseUrl}. Please start the Python service in transcription-service.`,
+        );
+      }
+      throw new Error(
+        `Transcription service error: ${error.response?.data?.detail || error.message}`,
+      );
     }
   }
 }

@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { VideosController } from './controller';
 import { VideoProjectRepository } from './repository';
+import { QueueModule } from 'src/queue/queue.module';
 import {
   VideoPipelineOrchestrator,
   AudioExtractionLayer,
@@ -12,6 +13,7 @@ import {
 } from './service';
 
 @Module({
+  imports: [forwardRef(() => QueueModule)],
   controllers: [VideosController],
   providers: [
     VideoProjectRepository,

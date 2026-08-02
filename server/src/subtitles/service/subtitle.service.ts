@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SubtitleCueRepository, SubtitleStyleRepository } from '../repository';
 import { VideoProjectRepository } from 'src/videos/repository';
-import { CueGenerationLayer, VideoPipelineOrchestrator } from 'src/videos/service';
+import { CueGenerationLayer } from 'src/videos/service';
 import { CreateCueDto, UpdateCueDto, UpdateStyleDto } from '../dto';
+import { SubtitleTranscriptionQueueService } from 'src/queue';
 
 @Injectable()
 export class SubtitleService {
@@ -11,7 +12,7 @@ export class SubtitleService {
     private readonly styleRepo: SubtitleStyleRepository,
     private readonly videoRepo: VideoProjectRepository,
     private readonly cueGeneration: CueGenerationLayer,
-    private readonly orchestrator: VideoPipelineOrchestrator,
+    private readonly queueService: SubtitleTranscriptionQueueService,
   ) {}
 
   async createCue(videoProjectId: string, dto: CreateCueDto) {
@@ -32,10 +33,10 @@ export class SubtitleService {
 
     const words = project.words || [];
 
-    // If no words exist yet (transcription failed or not executed), trigger pipeline execution!
+    // If no words exist yet (transcription failed or not executed), trigger pipeline execution via Redis queue!
     if (words.length === 0) {
-      this.orchestrator.runPipeline(videoProjectId).catch(() => {});
-      return { message: 'Pipeline re-triggered for transcription', cues: [] };
+      await this.queueService.addTranscriptionJob({ videoProjectId });
+      return { message: 'Pipeline re-triggered for transcription in Redis queue', cues: [] };
     }
 
     const newCues = this.cueGeneration.generateCues(words, wordsPerCue);
