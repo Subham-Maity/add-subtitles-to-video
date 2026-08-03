@@ -99,50 +99,6 @@ export class PrismaService
           }
         });
       }
-
-      // Extension for slow queries + error tracking
-      const config = new ConfigService();
-      if (!this.isProduction || config.get<boolean>('LOG_SLOW_QUERIES')) {
-        this.$extends({
-          query: {
-            $allModels: {
-              async $allOperations({
-                operation,
-                model,
-                args,
-                query,
-              }: {
-                operation: string;
-                model: string;
-                args: any;
-                query: any;
-              }) {
-                const startTime = Date.now();
-
-                try {
-                  const result = await query(args);
-                  const duration = Date.now() - startTime;
-
-                  if (LOGGING_CONFIG.verySlowQueries && duration > 1000) {
-                    console.warn(
-                      `⚠️ Slow Query (${duration}ms) - ${model}.${operation}`,
-                    );
-                  }
-
-                  return result;
-                } catch (error: any) {
-                  if (LOGGING_CONFIG.failedQueries) {
-                    console.error(
-                      `❌ Query Failed - ${model}.${operation}: ${error.message}`,
-                    );
-                  }
-                  throw error;
-                }
-              },
-            },
-          },
-        });
-      }
     } catch (error) {
       this.logger.error('Failed to connect to database', error);
       throw error;

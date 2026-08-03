@@ -4,6 +4,7 @@ import {
   Post,
   Delete,
   Param,
+  Body,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -21,7 +22,7 @@ import { Observable, map } from 'rxjs';
 import { Response } from 'express';
 import { VideoProjectRepository } from 'src/videos/repository';
 import { VideoPipelineOrchestrator } from 'src/videos/service';
-import { FfprobeHelper } from 'src/videos/service/core/utility';
+import { FfprobeHelper, TranscriptionClientProvider } from 'src/videos/service/core/utility';
 import { SubtitleTranscriptionQueueService } from 'src/queue';
 
 @Controller('videos')
@@ -33,6 +34,7 @@ export class VideosController {
     private readonly orchestrator: VideoPipelineOrchestrator,
     private readonly queueService: SubtitleTranscriptionQueueService,
     private readonly ffprobe: FfprobeHelper,
+    private readonly transcriptionClient: TranscriptionClientProvider,
     config: ConfigService,
   ) {
     this.storageDir = path.resolve(
@@ -49,9 +51,10 @@ export class VideosController {
     const activeProjectIds = new Set(projects.map((p) => p.id));
     const activeStoragePaths = new Set(projects.map((p) => path.resolve(p.storagePath)));
 
-    // Helper to safely delete file & track size
+    // Helper to safely delete file & track size (ignores .gitkeep)
     const deleteFileTrack = (filePath: string) => {
       try {
+        if (path.basename(filePath) === '.gitkeep') return;
         if (fs.existsSync(filePath)) {
           const stat = fs.statSync(filePath);
           if (stat.isFile()) {
@@ -63,14 +66,16 @@ export class VideosController {
       } catch (e) {}
     };
 
-    // Helper to safely delete folder & track size
+    // Helper to safely delete folder & track size (ignores .gitkeep)
     const deleteFolderTrack = (folderPath: string) => {
       try {
-        if (fs.existsSync(folderPath)) {
+        if (path.basename(folderPath) === '.gitkeep') return;
+        if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
           const getDirSize = (p: string): number => {
             let size = 0;
             const entries = fs.readdirSync(p, { withFileTypes: true });
             for (const entry of entries) {
+              if (entry.name === '.gitkeep') continue;
               const full = path.join(p, entry.name);
               if (entry.isDirectory()) size += getDirSize(full);
               else size += fs.statSync(full).size;
@@ -84,24 +89,28 @@ export class VideosController {
       } catch (e) {}
     };
 
-    // 1. Purge temp directory completely
+    // 1. Purge temp directory completely (ignore .gitkeep)
     const tempDir = path.join(this.storageDir, 'temp');
     if (fs.existsSync(tempDir)) {
       try {
         const files = fs.readdirSync(tempDir);
         for (const f of files) {
+          if (f === '.gitkeep') continue;
           deleteFileTrack(path.join(tempDir, f));
         }
       } catch (e) {}
     }
 
-    // 2. Clean export directories (both orphan folders & old render files inside active folders)
+    // 2. Clean export directories (ignore .gitkeep in storage/exports)
     const exportsDir = path.join(this.storageDir, 'exports');
     if (fs.existsSync(exportsDir)) {
       try {
         const dirs = fs.readdirSync(exportsDir);
         for (const dirName of dirs) {
+          if (dirName === '.gitkeep') continue;
           const exportFolderPath = path.join(exportsDir, dirName);
+          if (!fs.existsSync(exportFolderPath) || !fs.statSync(exportFolderPath).isDirectory()) continue;
+
           if (!activeProjectIds.has(dirName)) {
             // Delete entire orphan export folder
             deleteFolderTrack(exportFolderPath);
@@ -112,6 +121,7 @@ export class VideosController {
               // Find the newest export file if any
               let newestFile: { name: string; mtime: number } | null = null;
               for (const ef of exportFiles) {
+                if (ef === '.gitkeep') continue;
                 const fullEfPath = path.join(exportFolderPath, ef);
                 const stat = fs.statSync(fullEfPath);
                 if (ef.endsWith('.ass')) {
@@ -125,7 +135,7 @@ export class VideosController {
 
               // Delete all older export files except the latest one (if present)
               for (const ef of exportFiles) {
-                if (ef.endsWith('.ass')) continue;
+                if (ef === '.gitkeep' || ef.endsWith('.ass')) continue;
                 const fullEfPath = path.join(exportFolderPath, ef);
                 const stat = fs.statSync(fullEfPath);
                 if (stat.isFile() && (ef.endsWith('.mp4') || ef.endsWith('.mov'))) {
@@ -140,28 +150,31 @@ export class VideosController {
       } catch (e) {}
     }
 
-    // 3. Clean temporary audio.wav extracts inside uploads & standalone audio folder
+    // 3. Clean temporary audio.wav extracts inside audio directory (ignore .gitkeep)
     const audioDir = path.join(this.storageDir, 'audio');
     if (fs.existsSync(audioDir)) {
       try {
         const files = fs.readdirSync(audioDir);
         for (const f of files) {
+          if (f === '.gitkeep') continue;
           deleteFileTrack(path.join(audioDir, f));
         }
       } catch (e) {}
     }
 
-    // Clean audio.wav & orphan files in uploads directory
+    // 4. Clean audio.wav & orphan files in uploads directory (ignore .gitkeep)
     const uploadsDir = path.join(this.storageDir, 'uploads');
     if (fs.existsSync(uploadsDir)) {
       try {
         const uploadFolders = fs.readdirSync(uploadsDir);
         for (const uf of uploadFolders) {
+          if (uf === '.gitkeep') continue;
           const folderPath = path.join(uploadsDir, uf);
-          if (fs.statSync(folderPath).isDirectory()) {
+          if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
             const files = fs.readdirSync(folderPath);
             let hasOriginal = false;
             for (const f of files) {
+              if (f === '.gitkeep') continue;
               const fullF = path.join(folderPath, f);
               if (f.startsWith('audio') || f.endsWith('.wav')) {
                 // Delete temporary extracted audio
@@ -179,12 +192,52 @@ export class VideosController {
       } catch (e) {}
     }
 
+    // Ensure .gitkeep files are preserved / recreated in storage subdirectories
+    for (const subDir of ['temp', 'uploads', 'exports', 'audio']) {
+      const gitkeepPath = path.join(this.storageDir, subDir, '.gitkeep');
+      const parentDir = path.dirname(gitkeepPath);
+      if (fs.existsSync(parentDir) && !fs.existsSync(gitkeepPath)) {
+        try {
+          fs.writeFileSync(gitkeepPath, '');
+        } catch (e) {}
+      }
+    }
+
     const freedMb = parseFloat((totalFreedBytes / (1024 * 1024)).toFixed(2));
     return {
       success: true,
       freedMb,
       deletedFilesCount,
       message: `Cleaned ${freedMb} MB of storage junk (${deletedFilesCount} temporary files removed)`,
+    };
+  }
+
+  @Post('queue/clear-all')
+  async clearAllQueueAndTasks() {
+    // 1. Cancel active Python transcription task
+    await this.transcriptionClient.cancelActiveTranscription();
+
+    // 2. Clear all in-flight orchestrator pipelines
+    this.orchestrator.clearAllPipelines();
+
+    // 3. Purge Redis BullMQ queue
+    await this.queueService.purgeQueue();
+
+    // 4. Reset processing DB statuses
+    const projects = await this.videoRepo.findAll();
+    let resetCount = 0;
+    for (const proj of projects) {
+      if (proj.status === 'TRANSCRIBING' || proj.status === 'EXTRACTING_AUDIO') {
+        const newStatus = proj.cues?.length ? 'TRANSCRIBED' : 'UPLOADED';
+        await this.videoRepo.updateStatus(proj.id, newStatus as any);
+        resetCount++;
+      }
+    }
+
+    return {
+      success: true,
+      resetCount,
+      message: `Stopped active AI tasks, purged Redis queue, and reset ${resetCount} project(s)!`,
     };
   }
 
@@ -204,7 +257,10 @@ export class VideosController {
       }),
     }),
   )
-  async uploadVideo(@UploadedFile() file?: Express.Multer.File) {
+  async uploadVideo(
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('language') language?: string,
+  ) {
     if (!file) throw new BadRequestException('No video file uploaded');
 
     const videoId = `vid_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -225,8 +281,8 @@ export class VideosController {
       fps: metadata.fps,
     });
 
-    // Enqueue background transcription job in Redis BullMQ queue
-    await this.queueService.addTranscriptionJob({ videoProjectId: project.id });
+    // Enqueue background transcription job in Redis BullMQ queue with declared language
+    await this.queueService.addTranscriptionJob({ videoProjectId: project.id, language });
 
     return project;
   }
@@ -281,6 +337,46 @@ export class VideosController {
     await this.queueService.addTranscriptionJob({ videoProjectId: id });
 
     return { message: 'Pipeline retry initiated in Redis queue', id };
+  }
+
+  @Post(':id/retranscribe')
+  async retranscribePipeline(
+    @Param('id') id: string,
+    @Body() dto: { language?: string },
+  ) {
+    const project = await this.videoRepo.findById(id);
+    if (!project) throw new NotFoundException('Video project not found');
+
+    // Abort active Python task, purge queue, and clear orchestrator lock
+    await this.transcriptionClient.cancelActiveTranscription();
+    await this.queueService.purgeQueue();
+    this.orchestrator.clearPipeline(id);
+
+    // Enqueue background transcription job in Redis queue with explicit language override
+    await this.queueService.addTranscriptionJob({
+      videoProjectId: id,
+      language: dto.language,
+    });
+
+    return {
+      message: `Re-transcription initiated with language '${dto.language || 'auto'}'`,
+      id,
+    };
+  }
+
+  @Post(':id/reset')
+  async resetPipeline(@Param('id') id: string) {
+    const project = await this.videoRepo.findById(id);
+    if (!project) throw new NotFoundException('Video project not found');
+
+    // Abort active Python task, purge queued Redis BullMQ jobs and clear orchestrator lock
+    await this.transcriptionClient.cancelActiveTranscription();
+    await this.queueService.purgeQueue();
+    this.orchestrator.clearPipeline(id);
+
+    const newStatus = project.cues?.length ? 'TRANSCRIBED' : 'UPLOADED';
+    await this.videoRepo.updateStatus(id, newStatus as any);
+    return { message: 'Pipeline reset completed', id, status: newStatus };
   }
 
   @Sse(':id/progress')

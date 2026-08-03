@@ -277,6 +277,9 @@ export default function StudioProjectPage() {
               setActiveCueOverride(null);
             }}
             onCuesUpdated={fetchProjectDetail}
+            onPipelineStarted={() => {
+              setProject((prev) => (prev ? { ...prev, status: 'TRANSCRIBING', errorMessage: null } : null));
+            }}
             wordsPerCue={project.style?.wordsPerCue || 6}
           />
         </div>

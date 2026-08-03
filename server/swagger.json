@@ -29,6 +29,20 @@
         ]
       }
     },
+    "/xam/videos/queue/clear-all": {
+      "post": {
+        "operationId": "VideosController_clearAllQueueAndTasks",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
     "/xam/videos/upload": {
       "post": {
         "operationId": "VideosController_uploadVideo",
@@ -147,6 +161,52 @@
         ]
       }
     },
+    "/xam/videos/{id}/retranscribe": {
+      "post": {
+        "operationId": "VideosController_retranscribePipeline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
+    "/xam/videos/{id}/reset": {
+      "post": {
+        "operationId": "VideosController_resetPipeline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Videos"
+        ]
+      }
+    },
     "/xam/videos/{id}/progress": {
       "get": {
         "operationId": "VideosController_sseProgress",
@@ -170,7 +230,86 @@
         ]
       }
     },
-    "/xam/videos/{id}/cues": {
+    "/xam/subtitles/batch/extract": {
+      "post": {
+        "operationId": "SubtitlesController_extractBatch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchExtractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subtitles"
+        ]
+      }
+    },
+    "/xam/subtitles/batch/merge": {
+      "post": {
+        "operationId": "SubtitlesController_mergeBatch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeSubtitlesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subtitles"
+        ]
+      }
+    },
+    "/xam/subtitles/project/{id}/export": {
+      "get": {
+        "operationId": "SubtitlesController_exportSubtitles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/SubtitleExportFormat"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subtitles"
+        ]
+      }
+    },
+    "/xam/subtitles/{id}/cues": {
       "post": {
         "operationId": "SubtitlesController_createCue",
         "parameters": [
@@ -203,7 +342,7 @@
         ]
       }
     },
-    "/xam/videos/{id}/cues/{cueId}": {
+    "/xam/subtitles/{id}/cues/{cueId}": {
       "patch": {
         "operationId": "SubtitlesController_updateCue",
         "parameters": [
@@ -257,7 +396,7 @@
         ]
       }
     },
-    "/xam/videos/{id}/cues/regenerate": {
+    "/xam/subtitles/{id}/cues/regenerate": {
       "post": {
         "operationId": "SubtitlesController_regenerateCues",
         "parameters": [
@@ -290,7 +429,7 @@
         ]
       }
     },
-    "/xam/videos/{id}/style": {
+    "/xam/subtitles/{id}/style": {
       "patch": {
         "operationId": "SubtitlesController_updateStyle",
         "parameters": [
@@ -460,6 +599,72 @@
       }
     },
     "schemas": {
+      "SubtitleExportFormat": {
+        "type": "string",
+        "enum": [
+          "srt",
+          "text"
+        ]
+      },
+      "BatchExtractDto": {
+        "type": "object",
+        "properties": {
+          "videoProjectIds": {
+            "description": "Array of video project IDs to extract subtitles for",
+            "example": [
+              "vid_1",
+              "vid_2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "format": {
+            "default": "srt",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubtitleExportFormat"
+              }
+            ]
+          },
+          "language": {
+            "type": "string",
+            "description": "Declared speech language (e.g. hi, hi-roman, en, ur, auto)",
+            "example": "hi"
+          }
+        },
+        "required": [
+          "videoProjectIds"
+        ]
+      },
+      "MergeSubtitlesDto": {
+        "type": "object",
+        "properties": {
+          "videoProjectIds": {
+            "description": "Array of video project IDs to merge subtitles from",
+            "example": [
+              "vid_1",
+              "vid_2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "format": {
+            "default": "srt",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubtitleExportFormat"
+              }
+            ]
+          }
+        },
+        "required": [
+          "videoProjectIds"
+        ]
+      },
       "CreateCueDto": {
         "type": "object",
         "properties": {}

@@ -7,8 +7,12 @@ export class TranscriptionLayer {
 
   constructor(private readonly client: TranscriptionClientProvider) {}
 
-  async transcribe(audioPath: string): Promise<TranscribeWordResult[]> {
-    this.logger.log(`Starting transcription for ${audioPath}`);
-    return this.client.transcribe(audioPath);
+  async transcribe(
+    audioPath: string,
+    language?: string,
+    onProgress?: (pct: number, logMessage: string) => void,
+  ): Promise<TranscribeWordResult[]> {
+    this.logger.log(`Starting transcription for ${audioPath} (language: ${language || 'auto'})`);
+    return this.client.transcribe(audioPath, language, onProgress);
   }
 }

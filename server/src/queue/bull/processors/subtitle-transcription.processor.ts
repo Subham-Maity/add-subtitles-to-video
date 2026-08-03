@@ -12,10 +12,10 @@ export class SubtitleTranscriptionProcessor extends BaseQueueProcessor<SubtitleT
   }
 
   async process(job: Job<SubtitleTranscriptionJobData>): Promise<unknown> {
-    const { videoProjectId } = job.data;
-    this.logger.log(`Processing transcription/subtitles job for video ${videoProjectId}`);
+    const { videoProjectId, language } = job.data;
+    this.logger.log(`Processing transcription/subtitles job for video ${videoProjectId} (language: ${language || 'auto'})`);
 
-    await this.orchestrator.runPipeline(videoProjectId);
+    await this.orchestrator.runPipeline(videoProjectId, language);
 
     return { videoProjectId, status: 'completed' };
   }

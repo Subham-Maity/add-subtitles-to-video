@@ -84,12 +84,15 @@ Your data is yours. Period.
 
 ### Core
 
-- **AI Auto-Transcription** — powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) with word-level timestamps
-- **Canva-Style Subtitle Editor** — drag, resize, rotate, and reposition subtitles directly on the video canvas
+- **AI Auto-Transcription & SSE Streaming** — powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) with word-level timestamps, real-time Server-Sent Events (SSE) progress streaming, and live cancellation support
+- **Async Job Queue (Redis & BullMQ)** — reliable background task processing for heavy transcription and video export jobs without blocking application performance
+- **Batch Processing & Merging** — extract subtitles for multiple videos concurrently and merge all cues into a single unified timeline script
+- **Standalone Subtitle Export** — download subtitles directly as `.srt` or `.txt` files individually or merged across batch video projects
+- **Canva-Style Subtitle Editor** — drag, resize, rotate, and reposition subtitles directly on the interactive video canvas
 - **Full Style Control** — font, size, color, bold, italic, outline stroke (inside / outside / center), background box, opacity
 - **WYSIWYG Preview** — what you see on the canvas is exactly what you get in the export, pixel for pixel
-- **Fast Export** — NVIDIA NVENC GPU-accelerated H.264/H.265 rendering, with automatic CPU fallback
-- **Real-Time Export Progress** — live SSE progress bar so you're never staring at a frozen screen
+- **Fast Video Export** — NVIDIA NVENC GPU-accelerated H.264/H.265 rendering with automatic CPU fallback
+- **Real-Time Pipeline Monitor** — live progress banners for pipeline stages so you're never staring at a frozen screen
 - **One-Click Storage Cleaner** — purge temp audio extracts, old renders, and orphaned subtitle files instantly
 
 ### Subtitle Styling
@@ -113,10 +116,12 @@ Your data is yours. Period.
 
 ### Export Formats
 
-| Format | Codec | Notes |
+| Format | Type / Codec | Notes |
 |---|---|---|
-| `.mp4` | H.264 (NVENC / x264) | Universal compatibility |
-| `.mov` | H.265 / HEVC (NVENC / libx265) | Smaller file size, higher quality |
+| `.mp4` | Video (H.264 - NVENC / x264) | Universal video compatibility |
+| `.mov` | Video (H.265 / HEVC - NVENC / libx265) | Higher compression efficiency, smaller size |
+| `.srt` | Subtitle (SubRip) | Standard subtitle track format for video players and editors |
+| `.txt` | Subtitle (Plain Text) | Full text script and transcript dump |
 
 ---
 
@@ -127,6 +132,7 @@ Your data is yours. Period.
   <img src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white" alt="NestJS">
+  <img src="https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis">
   <img src="https://img.shields.io/badge/Prisma-2D3748?style=flat-square&logo=prisma&logoColor=white" alt="Prisma">
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
@@ -139,7 +145,8 @@ Your data is yours. Period.
 |---|---|
 | **Frontend** | Next.js 16, React, TypeScript, vanilla CSS |
 | **Backend** | NestJS 10, TypeScript, Prisma ORM |
-| **AI Engine** | Python, FastAPI, faster-whisper (large-v3) |
+| **Task Queue** | Redis, BullMQ async job queue |
+| **AI Engine** | Python, FastAPI, faster-whisper (large-v3) with SSE Streaming |
 | **Video Processing** | FFmpeg (NVENC GPU + CPU fallback) |
 | **Database** | PostgreSQL (via Prisma) |
 | **Containerization** | Docker Compose |
@@ -284,9 +291,9 @@ Want to contribute? Pick one of these and go for it:
 - [ ] **Subtitle Translation** — auto-translate transcribed subtitles via LibreTranslate (still fully offline)
 - [ ] **Multiple Subtitle Tracks** — burn 2+ subtitle tracks at once (bilingual reels)
 - [ ] **Subtitle Templates** — save and reuse style presets (Netflix-style, YouTube-style, etc.)
-- [ ] **Batch Processing** — upload 10 videos, auto-subtitle all of them overnight
+- [x] **Batch Processing** — extract and transcribe subtitles across multiple video projects concurrently via Redis & BullMQ
 - [ ] **SRT / VTT Import** — import existing subtitle files instead of auto-transcribing
-- [ ] **SRT / VTT Export** — export subtitles as a standalone `.srt` or `.vtt` file
+- [x] **SRT / Text Export** — export subtitles as standalone `.srt` or `.txt` files (single project or merged batch)
 - [ ] **Speaker Diarization** — detect who's speaking and color-code subtitles by speaker
 - [ ] **Karaoke Mode** — highlight the current word while playing, TikTok-style
 - [ ] **Waveform Scrubber** — audio waveform timeline for precision subtitle editing

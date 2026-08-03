@@ -12,4 +12,5 @@ export interface BaseJobData {
 
 export interface SubtitleTranscriptionJobData extends BaseJobData {
   videoProjectId: string;
+  language?: string;
 }

@@ -79,4 +79,18 @@ export abstract class BaseBullService<T extends BaseJobData> {
       throw error;
     }
   }
+
+  async purgeQueue() {
+    try {
+      await this.queue.drain();
+      await this.queue.clean(0, 1000, 'completed');
+      await this.queue.clean(0, 1000, 'failed');
+      await this.queue.clean(0, 1000, 'active');
+      await this.queue.clean(0, 1000, 'wait');
+      await this.queue.clean(0, 1000, 'delayed');
+      this.logger.log(`Purged queue ${this.queue.name}`);
+    } catch (error) {
+      this.logger.error(`Failed to purge queue ${this.queue.name}`, (error as Error).stack);
+    }
+  }
 }
