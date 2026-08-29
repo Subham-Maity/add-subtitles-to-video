@@ -53,7 +53,7 @@ export function TranscriptEditorPanel({
 
   const handleSaveEdit = async (cueId: string, extraData?: { colorHex?: string | null }) => {
     try {
-      await api.patch(`/videos/${videoId}/cues/${cueId}`, {
+      await api.patch(`/subtitles/${videoId}/cues/${cueId}`, {
         text: editText,
         ...extraData,
       });
@@ -66,7 +66,7 @@ export function TranscriptEditorPanel({
 
   const handleColorChange = async (cue: SubtitleCue, colorHex: string | null) => {
     try {
-      await api.patch(`/videos/${videoId}/cues/${cue.id}`, { colorHex });
+      await api.patch(`/subtitles/${videoId}/cues/${cue.id}`, { colorHex });
       onCuesUpdated();
     } catch (err) {
       console.error('Failed to update cue color:', err);
@@ -75,7 +75,7 @@ export function TranscriptEditorPanel({
 
   const handleDeleteCue = async (cueId: string) => {
     try {
-      await api.delete(`/videos/${videoId}/cues/${cueId}`);
+      await api.delete(`/subtitles/${videoId}/cues/${cueId}`);
       onCuesUpdated();
     } catch (err) {
       console.error('Failed to delete cue:', err);
@@ -88,7 +88,7 @@ export function TranscriptEditorPanel({
       const lastCue = cues[cues.length - 1];
       const startMs = lastCue ? lastCue.endMs + 100 : 0;
       const endMs = startMs + 2000;
-      await api.post(`/videos/${videoId}/cues`, {
+      await api.post(`/subtitles/${videoId}/cues`, {
         text: newCueText.trim(),
         startMs,
         endMs,
@@ -113,7 +113,7 @@ export function TranscriptEditorPanel({
     setIsRegenerating(true);
     setShowWarningModal(false);
     try {
-      await api.post(`/videos/${videoId}/cues/regenerate`, { wordsPerCue });
+      await api.post(`/subtitles/${videoId}/cues/regenerate`, { wordsPerCue });
       onCuesUpdated();
     } catch (err) {
       console.error('Failed to regenerate cues:', err);

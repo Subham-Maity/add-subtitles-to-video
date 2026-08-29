@@ -109,7 +109,7 @@ export function InteractiveCanvasOverlay({
 
   const saveStyleBatch = async (patch: Partial<SubtitleStyle>) => {
     try {
-      await api.patch(`/videos/${videoId}/style`, patch);
+      await api.patch(`/subtitles/${videoId}/style`, patch);
       onStyleUpdated();
     } catch (err) {
       console.error('Failed to update canvas style:', err);
@@ -238,7 +238,7 @@ export function InteractiveCanvasOverlay({
   const handleSaveInlineText = async () => {
     if (currentCue) {
       try {
-        await api.patch(`/videos/${videoId}/cues/${currentCue.id}`, { text: inlineText });
+        await api.patch(`/subtitles/${videoId}/cues/${currentCue.id}`, { text: inlineText });
         setIsEditingInline(false);
         if (onCueUpdated) onCueUpdated();
       } catch (err) {

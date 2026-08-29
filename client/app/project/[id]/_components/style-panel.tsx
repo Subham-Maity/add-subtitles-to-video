@@ -41,7 +41,7 @@ export function StylePanel({ videoId, style, onStyleUpdated }: StylePanelProps) 
     setFormData(updated);
 
     try {
-      await api.patch(`/videos/${videoId}/style`, fields);
+      await api.patch(`/subtitles/${videoId}/style`, fields);
       onStyleUpdated();
     } catch (err) {
       console.error('Failed to update style:', err);

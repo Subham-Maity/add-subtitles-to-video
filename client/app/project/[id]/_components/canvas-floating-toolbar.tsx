@@ -60,7 +60,7 @@ export function CanvasFloatingToolbar({
 
   const updateStyle = async (patch: Partial<SubtitleStyle>) => {
     try {
-      await api.patch(`/videos/${videoId}/style`, patch);
+      await api.patch(`/subtitles/${videoId}/style`, patch);
       onStyleUpdated();
     } catch (err) {
       console.error('Failed to update style:', err);
@@ -70,8 +70,8 @@ export function CanvasFloatingToolbar({
   const handleWordsPerCueChange = async (wordsPerCue: number) => {
     setIsUpdatingWords(true);
     try {
-      await api.post(`/videos/${videoId}/cues/regenerate`, { wordsPerCue });
-      await api.patch(`/videos/${videoId}/style`, { wordsPerCue });
+      await api.post(`/subtitles/${videoId}/cues/regenerate`, { wordsPerCue });
+      await api.patch(`/subtitles/${videoId}/style`, { wordsPerCue });
       onStyleUpdated();
       if (onCueUpdated) onCueUpdated();
     } catch (err) {
@@ -84,7 +84,7 @@ export function CanvasFloatingToolbar({
   const updateCueColor = async (colorHex: string | null) => {
     if (!currentCue) return;
     try {
-      await api.patch(`/videos/${videoId}/cues/${currentCue.id}`, { colorHex });
+      await api.patch(`/subtitles/${videoId}/cues/${currentCue.id}`, { colorHex });
       if (onCueUpdated) onCueUpdated();
     } catch (err) {
       console.error('Failed to update cue color:', err);
