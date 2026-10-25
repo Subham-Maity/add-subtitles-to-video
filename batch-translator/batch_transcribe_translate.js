@@ -217,12 +217,16 @@ async function detectLanguage(audioPath, retries = 6) {
   }
 }
 
-async function transcribeAndTranslateStream(audioPath, task, onSegment, retries = 6) {
+async function transcribeAndTranslateStream(audioPath, task, language = null, onSegment = null, retries = 6) {
   let response;
   for (let attempt = 1; attempt <= retries; attempt++) {
     const formData = new FormData();
     formData.append('audio_path', audioPath);
     formData.append('task', task);
+    if (language) {
+      formData.append('language', language);
+    }
+    formData.append('vad_filter', 'false'); // Process entire audio without cutting off songs/music
 
     response = await fetch(`${SERVER_URL}/transcribe_stream`, {
       method: 'POST',
@@ -351,25 +355,34 @@ function buildTxtContent(item, completeResult, cues, detectedLang, isHindi, conf
   txtContent += `================================================================================\n\n`;
 
   const fullText = (completeResult.text || cues.map((c) => c.text).join(' ')).trim();
+  const displayText = fullText.length > 0 ? fullText : '[No spoken dialogue detected — background music only or silence]';
 
   if (timestampMode === 'without') {
     txtContent += `--- ENGLISH TRANSLATION (CLEAN TEXT) ---\n`;
-    txtContent += `${fullText}\n`;
+    txtContent += `${displayText}\n`;
   } else if (timestampMode === 'with') {
     txtContent += `--- SUBTITLE CUES (TIMED) ---\n`;
-    cues.forEach((cue) => {
-      txtContent += `${cue.timeFormatted} ${cue.text}\n`;
-    });
+    if (cues.length > 0) {
+      cues.forEach((cue) => {
+        txtContent += `${cue.timeFormatted} ${cue.text}\n`;
+      });
+    } else {
+      txtContent += `${displayText}\n`;
+    }
     txtContent += `\n`;
   } else {
     // Both
     txtContent += `--- SUBTITLE CUES (TIMED) ---\n`;
-    cues.forEach((cue) => {
-      txtContent += `${cue.timeFormatted} ${cue.text}\n`;
-    });
+    if (cues.length > 0) {
+      cues.forEach((cue) => {
+        txtContent += `${cue.timeFormatted} ${cue.text}\n`;
+      });
+    } else {
+      txtContent += `${displayText}\n`;
+    }
     txtContent += `\n`;
     txtContent += `--- FULL ENGLISH TRANSCRIPT ---\n`;
-    txtContent += `${fullText}\n`;
+    txtContent += `${displayText}\n`;
   }
 
   return txtContent;
@@ -401,11 +414,14 @@ function loadOrCreateIndex() {
     const prev = existingMap.get(filename);
 
     if (prev) {
+      // Auto-reset items that finished with 0 words due to previous aggressive VAD filter
+      const wasZeroWords = prev.status === 'completed' && (!prev.wordCount || prev.wordCount === 0);
       return {
         ...prev,
         id: idx + 1,
         filePath: fullPath,
         sizeBytes: stat.size,
+        status: wasZeroWords ? 'pending' : prev.status,
       };
     }
 
@@ -570,8 +586,16 @@ async function main() {
       const langColor = isHindi ? ANSI.magenta : ANSI.green;
       console.log(`${langColor}${detectedLang.toUpperCase()} (${confidence}% confidence)${ANSI.reset} - ${isHindi ? ANSI.bold + 'Hindi detected! Translating to English.' + ANSI.reset : 'Transcribing in English.'}`);
 
-      // Determine task: translate to English if Hindi or non-English, transcribe if already English
+      // Determine task & language: translate to English if Hindi or non-English, transcribe if already English
       const task = (isHindi || detectedLang !== 'en') ? 'translate' : 'transcribe';
+      let langParam = null;
+      if (isHindi) {
+        langParam = 'hi';
+      } else if (detectedLang === 'en') {
+        langParam = 'en';
+      } else if (detectResult.probability >= 0.45) {
+        langParam = detectedLang;
+      }
 
       // Stage C: Transcription / Translation Streaming
       console.log(`  [3/4] Streaming AI ${task.toUpperCase()} with word-level timestamps:`);
@@ -580,7 +604,7 @@ async function main() {
       let lastPct = 0;
       let lastTextSnippet = '';
 
-      const completeResult = await transcribeAndTranslateStream(tempWav, task, (segment) => {
+      const completeResult = await transcribeAndTranslateStream(tempWav, task, langParam, (segment) => {
         lastPct = segment.pct;
         lastTextSnippet = segment.text.trim().replace(/\s+/g, ' ');
         if (lastTextSnippet.length > 45) {

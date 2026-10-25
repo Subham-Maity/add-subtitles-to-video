@@ -122,7 +122,8 @@ def resolve_target_and_kwargs(
     audio_path: Optional[str],
     language: Optional[str],
     initial_prompt: Optional[str],
-    task: Optional[str] = None
+    task: Optional[str] = None,
+    vad_filter: Optional[bool] = None
 ):
     target_path = audio_path
     if file:
@@ -138,34 +139,37 @@ def resolve_target_and_kwargs(
     target_language: Optional[str] = None
     target_prompt: Optional[str] = initial_prompt
 
+    # Default vad_filter to False so Whisper processes audio with background music, songs, and quiet speech
+    # Set condition_on_previous_text to False to prevent hallucination loops in songs and short clips
     kwargs = {
         "word_timestamps": True,
         "beam_size": 5,
-        "vad_filter": True,
+        "condition_on_previous_text": False,
+        "vad_filter": vad_filter if vad_filter is not None else False,
         "task": task if task in ["transcribe", "translate"] else "transcribe"
     }
 
     if language and language.strip().lower() != "auto":
         clean_lang = language.strip().lower()
-        if clean_lang in ["en-translate", "translate-en", "en", "translate"]:
+        if clean_lang in ["en-translate", "translate-en", "translate"]:
             kwargs["task"] = "translate"
             logger.info("Setting Whisper task to 'translate' (Translating audio to English subtitles)")
         elif "hi-roman" in clean_lang or "hinglish" in clean_lang:
             target_language = "hi"
-            if not target_prompt:
+            if not target_prompt and kwargs.get("task") != "translate":
                 target_prompt = "Namaste dosto, yeh audio Hinglish mein hai aur Roman script mein likha gaya hai."
         elif "hi-strict" in clean_lang or "hi-devanagari" in clean_lang or clean_lang == "hi":
             target_language = "hi"
-            if not target_prompt:
+            if not target_prompt and kwargs.get("task") != "translate":
                 target_prompt = "यह हिंदी भाषा में एक बातचीत है।"
         elif "-" in clean_lang:
             target_language = clean_lang.split("-")[0]
         else:
             target_language = clean_lang
 
-    if target_language and kwargs.get("task") != "translate":
+    if target_language:
         kwargs["language"] = target_language
-    if target_prompt:
+    if target_prompt and kwargs.get("task") != "translate":
         kwargs["initial_prompt"] = target_prompt
 
     return target_path, kwargs
@@ -193,9 +197,10 @@ async def transcribe_audio(
     audio_path: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     task: Optional[str] = Form(None),
-    initial_prompt: Optional[str] = Form(None)
+    initial_prompt: Optional[str] = Form(None),
+    vad_filter: Optional[bool] = Form(None)
 ):
-    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt, task)
+    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt, task, vad_filter)
     logger.info(f"Transcribing audio file: {target_path} (kwargs: {kwargs})")
 
     try:
@@ -246,7 +251,8 @@ async def transcribe_audio_stream(
     audio_path: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     task: Optional[str] = Form(None),
-    initial_prompt: Optional[str] = Form(None)
+    initial_prompt: Optional[str] = Form(None),
+    vad_filter: Optional[bool] = Form(None)
 ):
     global current_abort_event
     with abort_lock:
@@ -255,7 +261,7 @@ async def transcribe_audio_stream(
         current_abort_event = threading.Event()
         my_abort_event = current_abort_event
 
-    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt, task)
+    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt, task, vad_filter)
     logger.info(f"Streaming transcription for audio file: {target_path} (kwargs: {kwargs})")
 
     def generate_events():
