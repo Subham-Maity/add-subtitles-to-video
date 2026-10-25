@@ -1,8 +1,21 @@
 import os
+import sys
 import json
 import logging
 import threading
 from typing import List, Optional
+
+# Ensure CUDA 12 DLLs (cublas, cudnn, nvrtc) from site-packages are accessible on Windows
+site_pkg = os.path.abspath(os.path.join(os.path.dirname(sys.executable), '..', 'Lib', 'site-packages'))
+for d in ['cublas', 'cudnn', 'cuda_nvrtc']:
+    bin_path = os.path.join(site_pkg, 'nvidia', d, 'bin')
+    if os.path.exists(bin_path):
+        try:
+            os.add_dll_directory(bin_path)
+        except Exception:
+            pass
+        os.environ['PATH'] = bin_path + ';' + os.environ['PATH']
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -13,9 +26,9 @@ logger = logging.getLogger("transcription-service")
 
 app = FastAPI(title="Faster-Whisper Local Transcription Service")
 
-MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3-turbo")
+MODEL_SIZE = os.getenv("WHISPER_MODEL", "small")
 DEVICE = os.getenv("DEVICE", "cuda")
-COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8_float16")
+COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")
 
 model_instance: Optional[WhisperModel] = None
 is_loading = False
@@ -29,12 +42,11 @@ def load_model_bg():
         return
     is_loading = True
 
-    # High-accuracy model candidates for Hindi / Hinglish code-switching
     models_to_try = [MODEL_SIZE]
-    if MODEL_SIZE != "large-v3-turbo":
-        models_to_try.append("large-v3-turbo")
-    if "medium" not in models_to_try:
-        models_to_try.append("medium")
+    if "small" not in models_to_try:
+        models_to_try.append("small")
+    if "base" not in models_to_try:
+        models_to_try.append("base")
 
     for target_model in models_to_try:
         try:
@@ -74,8 +86,16 @@ class WordTimestamp(BaseModel):
 
 class TranscribeResponse(BaseModel):
     words: List[WordTimestamp]
+    text: Optional[str] = None
     language: Optional[str] = None
+    is_hindi: Optional[bool] = None
+    task: Optional[str] = None
     device: Optional[str] = None
+
+class DetectLanguageResponse(BaseModel):
+    language: str
+    probability: float
+    is_hindi: bool
 
 @app.get("/health")
 def health_check():
@@ -101,7 +121,8 @@ def resolve_target_and_kwargs(
     file: Optional[UploadFile],
     audio_path: Optional[str],
     language: Optional[str],
-    initial_prompt: Optional[str]
+    initial_prompt: Optional[str],
+    task: Optional[str] = None
 ):
     target_path = audio_path
     if file:
@@ -121,12 +142,12 @@ def resolve_target_and_kwargs(
         "word_timestamps": True,
         "beam_size": 5,
         "vad_filter": True,
-        "task": "transcribe"
+        "task": task if task in ["transcribe", "translate"] else "transcribe"
     }
 
     if language and language.strip().lower() != "auto":
         clean_lang = language.strip().lower()
-        if clean_lang in ["en-translate", "translate-en", "en"]:
+        if clean_lang in ["en-translate", "translate-en", "en", "translate"]:
             kwargs["task"] = "translate"
             logger.info("Setting Whisper task to 'translate' (Translating audio to English subtitles)")
         elif "hi-roman" in clean_lang or "hinglish" in clean_lang:
@@ -149,14 +170,32 @@ def resolve_target_and_kwargs(
 
     return target_path, kwargs
 
+@app.post("/detect_language", response_model=DetectLanguageResponse)
+async def detect_audio_language(
+    file: Optional[UploadFile] = File(None),
+    audio_path: Optional[str] = Form(None)
+):
+    target_path, _ = resolve_target_and_kwargs(file, audio_path, None, None)
+    model = get_model()
+    from faster_whisper.audio import decode_audio
+    audio_data = decode_audio(target_path, sampling_rate=16000)
+    lang, prob, _ = model.detect_language(audio_data)
+    is_hindi = lang in ["hi", "ur"]
+    return DetectLanguageResponse(
+        language=lang,
+        probability=float(prob),
+        is_hindi=is_hindi
+    )
+
 @app.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(
     file: Optional[UploadFile] = File(None),
     audio_path: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
+    task: Optional[str] = Form(None),
     initial_prompt: Optional[str] = Form(None)
 ):
-    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt)
+    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt, task)
     logger.info(f"Transcribing audio file: {target_path} (kwargs: {kwargs})")
 
     try:
@@ -164,11 +203,14 @@ async def transcribe_audio(
         segments, info = model.transcribe(target_path, **kwargs)
 
         words_result: List[WordTimestamp] = []
+        text_segments: List[str] = []
         total_duration = info.duration if info and info.duration > 0 else 1.0
 
         for segment in segments:
             pct = min(99, int((segment.end / total_duration) * 100))
             logger.info(f"Segment progress [{pct}%] [{segment.start:.1f}s -> {segment.end:.1f}s]: {segment.text}")
+            if segment.text and segment.text.strip():
+                text_segments.append(segment.text.strip())
             if segment.words:
                 for word_info in segment.words:
                     clean_word = word_info.word.strip()
@@ -181,10 +223,15 @@ async def transcribe_audio(
                             )
                         )
 
-        logger.info(f"Transcription complete. Language: {info.language}. Generated {len(words_result)} words.")
+        full_text = " ".join(text_segments)
+        is_hindi = info.language in ["hi", "ur"]
+        logger.info(f"Transcription complete. Language: {info.language} (is_hindi: {is_hindi}). Generated {len(words_result)} words.")
         return TranscribeResponse(
             words=words_result,
+            text=full_text,
             language=info.language,
+            is_hindi=is_hindi,
+            task=kwargs.get("task", "transcribe"),
             device=f"{DEVICE} ({COMPUTE_TYPE})"
         )
     except HTTPException:
@@ -198,6 +245,7 @@ async def transcribe_audio_stream(
     file: Optional[UploadFile] = File(None),
     audio_path: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
+    task: Optional[str] = Form(None),
     initial_prompt: Optional[str] = Form(None)
 ):
     global current_abort_event
@@ -207,7 +255,7 @@ async def transcribe_audio_stream(
         current_abort_event = threading.Event()
         my_abort_event = current_abort_event
 
-    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt)
+    target_path, kwargs = resolve_target_and_kwargs(file, audio_path, language, initial_prompt, task)
     logger.info(f"Streaming transcription for audio file: {target_path} (kwargs: {kwargs})")
 
     def generate_events():
@@ -216,8 +264,16 @@ async def transcribe_audio_stream(
             segments, info = model.transcribe(target_path, **kwargs)
             total_duration = info.duration if info and info.duration > 0 else 1.0
             words_result = []
+            text_segments = []
 
-            init_data = json.dumps({'type': 'init', 'duration': info.duration, 'language': info.language})
+            is_hindi = info.language in ["hi", "ur"]
+            init_data = json.dumps({
+                'type': 'init',
+                'duration': info.duration,
+                'language': info.language,
+                'is_hindi': is_hindi,
+                'task': kwargs.get("task", "transcribe")
+            })
             yield f"data: {init_data}\n\n"
 
             for segment in segments:
@@ -228,6 +284,8 @@ async def transcribe_audio_stream(
 
                 pct = min(99, int((segment.end / total_duration) * 100))
                 seg_words = []
+                if segment.text and segment.text.strip():
+                    text_segments.append(segment.text.strip())
                 if segment.words:
                     for word_info in segment.words:
                         clean_word = word_info.word.strip()
@@ -253,7 +311,10 @@ async def transcribe_audio_stream(
             complete_data = json.dumps({
                 'type': 'complete',
                 'words': words_result,
-                'language': info.language
+                'text': " ".join(text_segments),
+                'language': info.language,
+                'is_hindi': is_hindi,
+                'task': kwargs.get("task", "transcribe")
             })
             yield f"data: {complete_data}\n\n"
 
@@ -263,6 +324,7 @@ async def transcribe_audio_stream(
             yield f"data: {err_data}\n\n"
 
     return StreamingResponse(generate_events(), media_type="text/event-stream")
+
 
 if __name__ == "__main__":
     import uvicorn

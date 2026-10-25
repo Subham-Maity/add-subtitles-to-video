@@ -94,6 +94,9 @@ Your data is yours. Period.
 - **Fast Video Export** — NVIDIA NVENC GPU-accelerated H.264/H.265 rendering with automatic CPU fallback
 - **Real-Time Pipeline Monitor** — live progress banners for pipeline stages so you're never staring at a frozen screen
 - **One-Click Storage Cleaner** — purge temp audio extracts, old renders, and orphaned subtitle files instantly
+- **Offline Batch Video Translator (CLI)** — batch translate hundreds of videos from `storage/others/` into English text files (with or without timestamps) and auto-merge: see [Batch Translator Guide](./batch-translator/README.md).
+
+> 💡 **Note**: If somebody wants to bulk transcribe and translate multiple video files in queue into English directly via terminal (without the frontend UI), run `node batch_transcribe_translate.js` — full guide in [`batch-translator/README.md`](./batch-translator/README.md).
 
 ### Subtitle Styling
 
